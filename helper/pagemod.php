@@ -1,6 +1,6 @@
 <?php
 /**
- * Simple page modifying action for the burreaucracy plugin
+ * Simple page modifying action for the bureaucracy plugin
  *
  * @author Darren Hemphill <darren@baseline-remove-this-it.co.za>
  */
@@ -8,12 +8,21 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
 
     var $patterns;
     var $values;
+    protected $template_section_id;
 
-    function run($data, $thanks, $argv) {
+    /**
+     * Handle the user input [required]
+     *
+     * @param helper_plugin_bureaucracy_field[] $fields the list of fields in the form
+     * @param string                            $thanks the thank you message as defined in the form
+     *                                                  or default one. Might be modified by the action
+     *                                                  before returned
+     * @param array                             $argv   additional arguments passed to the action
+     * @return bool|string false on error, $thanks on success
+     */
+    public function run($fields, $thanks, $argv) {
         // Pickup the ID
         global $ID;
-        // Pickup the conf
-        global $conf;
 
         $page_to_modify = array_shift($argv);
         if($page_to_modify === '_self') {
@@ -22,20 +31,20 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
         } else {
             $page_to_modify = cleanID($page_to_modify);
         }
-        $template_section_id  = cleanID(array_shift($argv));
+        $template_section_id = cleanID(array_shift($argv));
 
-        $pagename = '';
+        //$pagename = '';
         $patterns = array();
-        $values   = array();
+        $values = array();
 
         // run through fields and prepare replacements
-        foreach($data as $opt) {
-            $label = preg_quote($opt->getParam('label'));
-            $value = $opt->getParam('value');
+        foreach($fields as $field) {
+            $label = preg_quote($field->getParam('label'));
+            $value = $field->getParam('value');
 #            if(in_array($opt->getParam('cmd'),$this->nofield)) continue;
-            $label = preg_replace('/([\/])/','\\\$1',$label);
-            $patterns[] = '/(@@|##)'.$label.'(@@|##)/i';
-            $values[]   = $value;
+            $label = preg_replace('/([\/])/', '\\\$1', $label);
+            $patterns[] = '/(@@|##)' . $label . '(@@|##)/i';
+            $values[] = $value;
         }
 
         /*
@@ -58,9 +67,9 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
 
         // check auth
         $runas = $this->getConf('runas');
-        if($runas){
-            $auth = auth_aclcheck($page_to_modify,$runas,array());
-        }else{
+        if($runas) {
+            $auth = auth_aclcheck($page_to_modify, $runas, array());
+        } else {
             $auth = auth_quickaclcheck($page_to_modify);
         }
         // This is an important point.  In order to be able to modify a page via this method ALL you need is READ access to the page
@@ -82,72 +91,89 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
         }
 
         // do the replacements
-        $template = $this->updatePage($patterns,$values,$template,$template_section_id);
+        $template = $this->updatePage($patterns, $values, $template, $template_section_id);
         if(!$template) {
             msg(sprintf($this->getLang('e_failedtoparse') ? $this->getLang('e_failedtoparse') : "Failed to parse the template", $tpl), -1);
             return false;
         }
         // save page and return
-        saveWikiText($page_to_modify, $template, sprintf($this->getLang('summary'),$ID));
+        saveWikiText($page_to_modify, $template, sprintf($this->getLang('summary'), $ID));
         $link_to_next = html_wikilink($page_to_modify);
-        $raw_link = preg_replace('/.*?href="(.*?)".*/','$1',$link_to_next);
-        return "Please wait while the page processes your results.... <script language='javascript'>location.replace('$raw_link')</script> or click ".html_wikilink($page_to_modify)." to see them";
+        $raw_link = preg_replace('/.*?href="(.*?)".*/', '$1', $link_to_next);
+        return "Please wait while the page processes your results.... <script language='javascript'>location.replace('$raw_link')</script> or click " . html_wikilink($page_to_modify) . " to see them";
     }
 
-    function getMetaValue($arguments) {
+    /**
+     * @param $arguments
+     * @return bool|string
+     */
+    protected function getMetaValue($arguments) {
         global $INFO;
         # this function gets a meta value (value generated at execution time
-        $matches;
+        $matches = array();
         $label = $arguments[1];
-        if(preg_match('/^date$/',$label,$matches)) {
+        if(preg_match('/^date$/', $label, $matches)) {
             return date("d/m/Y");
-        } elseif(preg_match('/^datetime$/',$label,$matches)) {
+        } elseif(preg_match('/^datetime$/', $label, $matches)) {
             return date("c");
-        } elseif(preg_match('/^date\.format\.(.*)$/',$label,$matches)) {
+        } elseif(preg_match('/^date\.format\.(.*)$/', $label, $matches)) {
             return date($matches[1]);
-        } elseif(preg_match('/^user(\.id){0,1}$/',$label,$matches)) {
+        } elseif(preg_match('/^user(\.id){0,1}$/', $label, $matches)) {
             return $INFO['userinfo']['user'];
-        } elseif(preg_match('/^user\.(mail|name)$/',$label,$matches)) {
+        } elseif(preg_match('/^user\.(mail|name)$/', $label, $matches)) {
             return $INFO['userinfo'][$matches[1]];
-        } elseif(preg_match('/^page(\.id){0,1}$/',$label,$matches)) {
+        } elseif(preg_match('/^page(\.id){0,1}$/', $label, $matches)) {
             return $INFO['id'];
-        } elseif(preg_match('/^page\.namespace$/',$label,$matches)) {
+        } elseif(preg_match('/^page\.namespace$/', $label, $matches)) {
             return $INFO['namespace'];
-        } elseif(preg_match('/^page\.name$/',$label,$matches)) {
-            preg_match('/([^:]*)$/',$INFO['id'],$matches);
+        } elseif(preg_match('/^page\.name$/', $label, $matches)) {
+            preg_match('/([^:]*)$/', $INFO['id'], $matches);
             return $matches[1];
         }
+        return '';
     }
 
-    function updatePage($patterns,$values,$template,$template_section_id) {
+    /**
+     * @param $patterns
+     * @param $values
+     * @param $template
+     * @param $template_section_id
+     * @return mixed
+     */
+    protected function updatePage($patterns, $values, $template, $template_section_id) {
         $this->patterns = $patterns;
         $this->values = $values;
         $this->template_section_id = $template_section_id;
-        return preg_replace_callback('/<pagemod (\w+)(?: (.+?))?>(.*?)<\/pagemod>/s',array($this,'parsePagemod'),$template);
+        return preg_replace_callback('/<pagemod (\w+)(?: (.+?))?>(.*?)<\/pagemod>/s', array($this, 'parsePagemod'), $template);
     }
 
-    function parsePagemod($matches) {
+    /**
+     * @param $matches
+     * @return string
+     */
+    protected function parsePagemod($matches) {
         // Get all the parameters
-        $full_text = $matches[0];
-        $id = $matches[1];
+        $full_text     = $matches[0];
+        $id            = $matches[1];
         $params_string = $matches[2];
-        $contents = $matches[3];
+        $contents      = $matches[3];
+
         // First parse the parameters
         $output_before = true;
         if($params_string) {
-            $params = explode(",",$params_string);
+            $params = explode(",", $params_string);
             foreach($params as $param) {
                 if($param === 'output_after') {
                     $output_before = false;
                 }
             }
         }
-        $output = "";
+
         // We only parse if this template is being matched (Allow multiple forms to update multiple sections of a page)
         if($id === $this->template_section_id) {
-            $output = preg_replace_callback('/@@meta\.(.*?)@@/',array($this,'getMetaValue'),$contents);
-            $output = preg_replace($this->patterns,$this->values,$output);
-            return $output_before ? $output.$full_text : $full_text.$output;
+            $output = preg_replace_callback('/@@meta\.(.*?)@@/', array($this, 'getMetaValue'), $contents);
+            $output = preg_replace($this->patterns, $this->values, $output);
+            return $output_before ? $output . $full_text : $full_text . $output;
         } else {
             return $full_text;
         }
