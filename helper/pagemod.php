@@ -61,7 +61,7 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
                 }
         */
         if(!page_exists($page_to_modify)) {
-            msg(sprintf($this->getLang('e_pagenotexists') ? $this->getLang('e_pagenotexists') : "This page [%s] does not exist, cannot be modified", html_wikilink($page_to_modify)), -1);
+            msg(sprintf($this->getLang('e_pagenotexists'), html_wikilink($page_to_modify)), -1);
             return false;
         }
 
@@ -93,14 +93,20 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
         // do the replacements
         $template = $this->updatePage($patterns, $values, $template, $template_section_id);
         if(!$template) {
-            msg(sprintf($this->getLang('e_failedtoparse') ? $this->getLang('e_failedtoparse') : "Failed to parse the template", $tpl), -1);
+            msg(sprintf($this->getLang('e_failedtoparse'), $tpl), -1);
             return false;
         }
         // save page and return
         saveWikiText($page_to_modify, $template, sprintf($this->getLang('summary'), $ID));
         $link_to_next = html_wikilink($page_to_modify);
         $raw_link = preg_replace('/.*?href="(.*?)".*/', '$1', $link_to_next);
-        return "Please wait while the page processes your results.... <script language='javascript'>location.replace('$raw_link')</script> or click " . html_wikilink($page_to_modify) . " to see them";
+        return sprintf(
+            $this->getLang('pleasewait'),
+            "<script type='text/javascript' charset='utf-8'>location.replace('$raw_link')</script>",
+            html_wikilink($page_to_modify)
+        );
+
+
     }
 
     /**
