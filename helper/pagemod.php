@@ -36,10 +36,9 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
             # shortcut to modify the same page as the submitter
             $page_to_modify = $ID;
         } else {
-            $page_to_modify = cleanID($page_to_modify);
+            //resolve against page which contains the form
+            resolve_pageid(getNS($ID), $page_to_modify, $ignored);
         }
-        //resolve against page which contains the form
-        resolve_pageid(getNS($ID), $page_to_modify, $ignored);
 
         $template_section_id = cleanID(array_shift($argv));
 
