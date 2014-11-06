@@ -21,18 +21,7 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
      * @return bool|string false on error, $thanks on success
      */
     public function run($fields, $thanks, $argv) {
-        // Pickup the ID
         global $ID;
-
-        $page_to_modify = array_shift($argv);
-        if($page_to_modify === '_self') {
-            # shortcut to modify the same page as the submitter
-            $page_to_modify = $ID;
-        } else {
-            $page_to_modify = cleanID($page_to_modify);
-        }
-        $template_section_id = cleanID(array_shift($argv));
-
 
         // prepare replacements
         $this->prepareNamespacetemplateReplacements();
@@ -41,21 +30,19 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
         $this->prepareNoincludeReplacement();
         $this->prepareFieldReplacements($fields);
 
-        /*
-                $pagename = '';
+        //handle arguments
+        $page_to_modify = array_shift($argv);
+        if($page_to_modify === '_self') {
+            # shortcut to modify the same page as the submitter
+            $page_to_modify = $ID;
+        } else {
+            $page_to_modify = cleanID($page_to_modify);
+        }
+        //resolve against page which contains the form
+        resolve_pageid(getNS($ID), $page_to_modify, $ignored);
 
-                // check pagename
-                $pagename = cleanID($pagename);
-                if(!$pagename) {
-                    msg($this->getLang('e_pagename'), -1);
-                    return false;
-                }
-                $pagename = $ns.':'.$pagename;
-                if(page_exists($pagename)) {
-                    msg(sprintf($this->getLang('e_pageexists'), html_wikilink($pagename)), -1);
-                    return false;
-                }
-        */
+        $template_section_id = cleanID(array_shift($argv));
+
         if(!page_exists($page_to_modify)) {
             msg(sprintf($this->getLang('e_pagenotexists'), html_wikilink($page_to_modify)), -1);
             return false;
