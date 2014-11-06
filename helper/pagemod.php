@@ -33,21 +33,17 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
         }
         $template_section_id = cleanID(array_shift($argv));
 
-        //$pagename = '';
-        $patterns = array();
-        $values = array();
 
-        // run through fields and prepare replacements
-        foreach($fields as $field) {
-            $label = preg_quote($field->getParam('label'));
-            $value = $field->getParam('value');
-#            if(in_array($opt->getParam('cmd'),$this->nofield)) continue;
-            $label = preg_replace('/([\/])/', '\\\$1', $label);
-            $patterns[] = '/(@@|##)' . $label . '(@@|##)/i';
-            $values[] = $value;
-        }
+        // prepare replacements
+        $this->prepareNamespacetemplateReplacements();
+        $this->prepareDateTimereplacements();
+        $this->prepareLanguagePlaceholder();
+        $this->prepareNoincludeReplacement();
+        $this->prepareFieldReplacements($fields);
 
         /*
+                $pagename = '';
+
                 // check pagename
                 $pagename = cleanID($pagename);
                 if(!$pagename) {
@@ -66,98 +62,99 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
         }
 
         // check auth
-        $runas = $this->getConf('runas');
-        if($runas) {
-            $auth = auth_aclcheck($page_to_modify, $runas, array());
-        } else {
-            $auth = auth_quickaclcheck($page_to_modify);
-        }
+        //
         // This is an important point.  In order to be able to modify a page via this method ALL you need is READ access to the page
         // This is good for admins to be able to only allow people to modify a page via a certain method.  If you want to protect the page
         // from people to WRITE via this method, deny access to the form page.
+        $auth = $this->aclcheck($page_to_modify); // runas
         if($auth < AUTH_READ) {
             msg($this->getLang('e_denied'), -1);
             return false;
         }
 
-        // get page_to_be modified
-        $tpl = cleanID($page_to_modify);
-
         // fetch template
-        $template = rawWiki($tpl);
+        $template = rawWiki($page_to_modify);
         if(empty($template)) {
-            msg(sprintf($this->getLang('e_template'), $tpl), -1);
+            msg(sprintf($this->getLang('e_template'), $page_to_modify), -1);
             return false;
         }
 
         // do the replacements
-        $template = $this->updatePage($patterns, $values, $template, $template_section_id);
+        $template = $this->updatePage($template, $template_section_id);
         if(!$template) {
-            msg(sprintf($this->getLang('e_failedtoparse'), $tpl), -1);
+            msg(sprintf($this->getLang('e_failedtoparse'), $page_to_modify), -1);
             return false;
         }
-        // save page and return
+        // save page
         saveWikiText($page_to_modify, $template, sprintf($this->getLang('summary'), $ID));
-        $link_to_next = html_wikilink($page_to_modify);
-        $raw_link = preg_replace('/.*?href="(.*?)".*/', '$1', $link_to_next);
+
+        //thanks message with redirect
+        $link = wl($page_to_modify);
         return sprintf(
             $this->getLang('pleasewait'),
-            "<script type='text/javascript' charset='utf-8'>location.replace('$raw_link')</script>",
-            html_wikilink($page_to_modify)
+            "<script type='text/javascript' charset='utf-8'>location.replace('$link')</script>", // javascript redirect
+            html_wikilink($page_to_modify) //fallback url
         );
-
-
     }
 
     /**
+     * (callback) Returns replacement for meta variabels (value generated at execution time)
+     *
      * @param $arguments
      * @return bool|string
      */
-    protected function getMetaValue($arguments) {
+    public function getMetaValue($arguments) {
         global $INFO;
-        # this function gets a meta value (value generated at execution time
-        $matches = array();
+        # this function gets a meta value
+
         $label = $arguments[1];
-        if(preg_match('/^date$/', $label, $matches)) {
+                              //print_r($INFO);
+        if($label == 'date') {
             return date("d/m/Y");
-        } elseif(preg_match('/^datetime$/', $label, $matches)) {
+
+        } elseif($label == 'datetime') {
             return date("c");
+
         } elseif(preg_match('/^date\.format\.(.*)$/', $label, $matches)) {
             return date($matches[1]);
-        } elseif(preg_match('/^user(\.id){0,1}$/', $label, $matches)) {
-            return $INFO['userinfo']['user'];
+
+        } elseif($label == 'user' || $label == 'user.id') {
+            return $INFO['client'];
+
         } elseif(preg_match('/^user\.(mail|name)$/', $label, $matches)) {
             return $INFO['userinfo'][$matches[1]];
-        } elseif(preg_match('/^page(\.id){0,1}$/', $label, $matches)) {
+
+        } elseif($label == 'page' || $label == 'page.id') {
             return $INFO['id'];
-        } elseif(preg_match('/^page\.namespace$/', $label, $matches)) {
+
+        } elseif($label == 'page.namespace') {
             return $INFO['namespace'];
-        } elseif(preg_match('/^page\.name$/', $label, $matches)) {
-            preg_match('/([^:]*)$/', $INFO['id'], $matches);
-            return $matches[1];
+
+        } elseif($label == 'page.name') {
+            return noNs($INFO['id']);
         }
         return '';
     }
 
     /**
-     * @param $patterns
-     * @param $values
-     * @param $template
-     * @param $template_section_id
-     * @return mixed
+     * Update the page with new content
+     *
+     * @param string $template
+     * @param string $template_section_id
+     * @return string
      */
-    protected function updatePage($patterns, $values, $template, $template_section_id) {
-        $this->patterns = $patterns;
-        $this->values = $values;
+    protected function updatePage($template, $template_section_id) {
         $this->template_section_id = $template_section_id;
         return preg_replace_callback('/<pagemod (\w+)(?: (.+?))?>(.*?)<\/pagemod>/s', array($this, 'parsePagemod'), $template);
     }
 
     /**
+     * (callback) Build replacement that is inserted before of after <pagemod> section
+     *
      * @param $matches
      * @return string
      */
-    protected function parsePagemod($matches) {
+    public function parsePagemod($matches) {
         // Get all the parameters
         $full_text     = $matches[0];
         $id            = $matches[1];
@@ -167,7 +164,7 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
         // First parse the parameters
         $output_before = true;
         if($params_string) {
-            $params = explode(",", $params_string);
+            $params = array_map('trim', explode(",", $params_string));
             foreach($params as $param) {
                 if($param === 'output_after') {
                     $output_before = false;
@@ -177,9 +174,16 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
 
         // We only parse if this template is being matched (Allow multiple forms to update multiple sections of a page)
         if($id === $this->template_section_id) {
+            //replace meta variables
             $output = preg_replace_callback('/@@meta\.(.*?)@@/', array($this, 'getMetaValue'), $contents);
-            $output = preg_replace($this->patterns, $this->values, $output);
-            return $output_before ? $output . $full_text : $full_text . $output;
+            //replace bureacracy variables
+            $output = $this->replace($output);
+
+            if($output_before) {
+                return $output . $full_text;
+            } else {
+                return $full_text . $output;
+            }
         } else {
             return $full_text;
         }
