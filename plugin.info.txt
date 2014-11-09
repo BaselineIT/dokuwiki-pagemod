@@ -1,7 +1,7 @@
 base    pagemod
 author  Baseline IT
 email   info@baseline-remove-this-it.co.za
-date    2010-09-29
+date    2014-11-10
 name    Inline Page Modifier
 desc    Allows you create structured ways pages can be modified
 url     https://www.dokuwiki.org/plugin:pagemod
