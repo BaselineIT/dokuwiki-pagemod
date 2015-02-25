@@ -74,6 +74,10 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
         // save page
         saveWikiText($page_to_modify, $template, sprintf($this->getLang('summary'), $ID));
 
+        if(array_shift($argv) == 'noredirect') {
+            return $thanks;
+        }
+
         //thanks message with redirect
         $link = wl($page_to_modify);
         return sprintf(
