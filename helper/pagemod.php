@@ -141,7 +141,7 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
         $this->replace_closing_tag = "<pagemod ".$replace_prefix."end_$template_section_id></pagemod>";
 
         //remove previous rendering (=replace mode) for this section-ID
-        $template = preg_replace('#'.preg_quote($this->replace_start_tag).'.+'.preg_quote($this->replace_closing_tag).'#is', '',$template);
+        $template = preg_replace('#'.preg_quote($this->replace_start_tag).'((?!\<pagemod ).)+'.preg_quote($this->replace_closing_tag).'#is', '',$template);
 
         return preg_replace_callback('/<pagemod (\w+)(?: (.+?))?>(.*?)<\/pagemod>/s', array($this, 'parsePagemod'), $template);
     }
