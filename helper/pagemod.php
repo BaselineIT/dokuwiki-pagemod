@@ -37,7 +37,10 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
             $page_to_modify = $ID;
         } else {
             //resolve against page which contains the form
-            resolve_pageid(getNS($ID), $page_to_modify, $ignored);
+            $page_to_modify = $this->replace($page_to_modify);
+
+            $myns = getNS($ID);
+            resolve_pageid($myns, $page_to_modify, $ignored);
         }
 
         $template_section_id = cleanID(array_shift($argv));
