@@ -29,6 +29,7 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
         $this->prepareLanguagePlaceholder();
         $this->prepareNoincludeReplacement();
         $this->prepareFieldReplacements($fields);
+        $this->processUploads($fields);
 
         //handle arguments
         $page_to_modify = array_shift($argv);
@@ -174,6 +175,60 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
             return $full_text;
         }
     }
+
+
+    /**
+     * move the uploaded files to <pagename>:FILENAME
+     *
+     *
+     * @param helper_plugin_bureaucracy_field[] $fields
+     * @throws Exception
+     */
+    protected function processUploads($fields) {
+        global $ID;
+        
+	foreach($fields as $field) {
+
+            if($field->getFieldType() !== 'file') continue;
+
+            $label = $field->getParam('label');
+            $file  = $field->getParam('file');
+//            $ns    = $field->getParam('namespace');
+            $ns = getNS($ID);
+
+            //skip empty files
+            if(!$file['size']) {
+                $this->values[$label] = '';
+                continue;
+            }
+
+            $id = $ns.':'.$file['name'];
+            resolve_mediaid($this->pagename, $id, $ignored); // resolve relatives
+
+            $auth = $this->aclcheck($id); // runas
+            $move = 'copy_uploaded_file';
+            //prevent from is_uploaded_file() check
+            if(defined('DOKU_UNITTEST')) {
+                $move = 'copy';
+            }
+            $res = media_save(
+                array('name' => $file['tmp_name']),
+                $id,
+                true, // overwrite if file already exists
+                $auth,
+                $move);
+
+            if(is_array($res)) throw new Exception($res[0]);
+
+            $this->values[$label] = $res;
+
+        }
+    }
+
+
+
+
+
 
 }
 // vim:ts=4:sw=4:et:enc=utf-8:
