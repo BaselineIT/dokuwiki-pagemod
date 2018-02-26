@@ -32,6 +32,7 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
 
         //handle arguments
         $page_to_modify = array_shift($argv);
+        $page_to_modify = $this->replace($page_to_modify);
         if($page_to_modify === '_self') {
             # shortcut to modify the same page as the submitter
             $page_to_modify = $ID;
