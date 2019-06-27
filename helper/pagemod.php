@@ -202,7 +202,7 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
                 continue;
             }
 
-            $id = $ns.':'.$file['name'];
+	    $id = $ns.":".date('YmdHi')."__".$file['name'];
             resolve_mediaid($this->pagename, $id, $ignored); // resolve relatives
 
             $auth = $this->aclcheck($id); // runas
