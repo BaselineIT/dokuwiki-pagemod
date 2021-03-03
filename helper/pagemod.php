@@ -29,6 +29,7 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
         $this->prepareLanguagePlaceholder();
         $this->prepareNoincludeReplacement();
         $this->prepareFieldReplacements($fields);
+        $argvTemp = $argv;
 
         //handle arguments
         $page_to_modify = array_shift($argv);
@@ -43,8 +44,17 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
         $template_section_id = cleanID(array_shift($argv));
 
         if(!page_exists($page_to_modify)) {
-            msg(sprintf($this->getLang('e_pagenotexists'), html_wikilink($page_to_modify)), -1);
-            return false;
+            
+            if ($argvTemp[2] == "createPage"){
+                $template = " ";
+                if (count($argvTemp) >= 4){
+                    $template = io_readFile(wikiFN($argvTemp[3]));
+                }
+                saveWikiText($page_to_modify, $template, "create via form");
+            }else {
+                msg(sprintf($this->getLang('e_pagenotexists'), html_wikilink($page_to_modify)), -1);
+                return false;
+            }
         }
 
         // check auth
