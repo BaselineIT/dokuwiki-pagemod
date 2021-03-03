@@ -51,7 +51,6 @@ class helper_plugin_pagemod_pagemod extends helper_plugin_bureaucracy_action {
                     $template = io_readFile(wikiFN($argvTemp[3]));
                 }
                 saveWikiText($page_to_modify, $template, "create via form");
-                return false;
             }else {
                 msg(sprintf($this->getLang('e_pagenotexists'), html_wikilink($page_to_modify)), -1);
                 return false;
